@@ -17,7 +17,7 @@ From the data set in step 4, creates a second, independent tidy data set with th
 
 #Set Working Directory
 
-setwd("C:/Users/Kenshin12/datasciencecoursera/3.GettingandCleaningData/CourseProject/UCI HAR Dataset/")
+setwd("/Users/simonerosmarino/Downloads/UCIHAR")
 
 #1. Merge the training and the test data.
 
