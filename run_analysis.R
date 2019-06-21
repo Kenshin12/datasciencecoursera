@@ -19,96 +19,61 @@ From the data set in step 4, creates a second, independent tidy data set with th
 
 setwd("/Users/simonerosmarino/Downloads/UCIHAR")
 
-#1. Merge the training and the test data.
+## Data download and unzip 
 
-#reading the data general and training.
+## Read Data
+subject_test <- read.table("./test/subject_test.txt")
+subject_train <- read.table("./train/subject_train.txt")
+X_test <- read.table("./test/X_test.txt")
+X_train <- read.table("./train/X_train.txt")
+y_test <- read.table("./test/y_test.txt")
+y_train <- read.table("./train/y_train.txt")
 
-features        <- read.table("./features.txt",header=FALSE)
-activityLabel   <- read.table("./activity_labels.txt",header=FALSE)
-subjectTrain    <-read.table("./train/subject_train.txt", header=FALSE)
-xTrain          <- read.table("./train/X_train.txt", header=FALSE)
-yTrain          <- read.table("./train/y_train.txt", header=FALSE)
+activity_labels <- read.table("./activity_labels.txt")
+features <- read.table("./features.txt")  
 
+## Analysis
+# 1. Merges the training and the test sets to create one data set.
+dataSet <- rbind(X_train,X_test)
 
-#Assign column names to the data above.
-
-colnames(activityLabel)<-c("activityId","activityType")
-colnames(subjectTrain) <- "subId"
-colnames(xTrain) <- features[,2]
-colnames(yTrain) <- "activityId"
-
-
-#Merging training Data...
-
-trainData <- cbind(yTrain,subjectTrain,xTrain)
-
-#Reading the test Data
-
-subjectTest    <-read.table("./test/subject_test.txt", header=FALSE)
-xTest         <- read.table("./test/X_test.txt", header=FALSE)
-yTest         <- read.table("./test/y_test.txt", header=FALSE)
-
-# Assign column names.. same as for training data..
-
-colnames(subjectTest) <- "subId"
-colnames(xTest) <- features[,2]
-colnames(yTest) <- "activityId"
-
-# merging test Data
-testData <- cbind(yTest,subjectTest,xTest)
+# 2. Extracts only the measurements on the mean and standard deviation for each measurement. 
+# Create a vector of only mean and std, use the vector to subset.
+MeanStdOnly <- grep("mean()|std()", features[, 2]) 
+dataSet <- dataSet[,MeanStdOnly]
 
 
-#final merged data
+# 4. Appropriately labels the data set with descriptive activity names.
+# Create vector of "Clean" feature names by getting rid of "()" apply to the dataSet to rename labels.
+CleanFeatureNames <- sapply(features[, 2], function(x) {gsub("[()]", "",x)})
+names(dataSet) <- CleanFeatureNames[MeanStdOnly]
 
-finalData <- rbind(trainData,testData)
+# combine test and train of subject data and activity data, give descriptive lables
+subject <- rbind(subject_train, subject_test)
+names(subject) <- 'subject'
+activity <- rbind(y_train, y_test)
+names(activity) <- 'activity'
 
-# creating a vector for column names to be used further
-
-colNames <- colnames(finalData);
-                  
-
-
-# 2. Extract only the measurements on the mean and standard deviation for each measurement
-
-
-data_mean_std <-finalData[,grepl("mean|std|subject|activityId",colnames(finalData))]
-
+# combine subject, activity, and mean and std only data set to create final data set.
+dataSet <- cbind(subject,activity, dataSet)
 
 
-#3. #Uses descriptive activity names to name the activities in the data set
+# 3. Uses descriptive activity names to name the activities in the data set
+# group the activity column of dataSet, re-name lable of levels with activity_levels, and apply it to dataSet.
+act_group <- factor(dataSet$activity)
+levels(act_group) <- activity_labels[,2]
+dataSet$activity <- act_group
 
 
-library(plyr)
+# 5. Creates a second, independent tidy data set with the average of each variable for each activity and each subject. 
 
-data_mean_std <- join(data_mean_std, activityLabel, by = "activityId", match = "first")
+# check if reshape2 package is installed
+if (!"reshape2" %in% installed.packages()) {
+	install.packages("reshape2")
+}
+library("reshape2")
 
-data_mean_std <-data_mean_std[,-1]
-
-#4. Appropriately labels the data set with descriptive variable names.
-
-#Remove parentheses
-
-names(data_mean_std) <- gsub("\\(|\\)", "", names(data_mean_std), perl  = TRUE)
-
-#correct syntax in names
-
-names(data_mean_std) <- make.names(names(data_mean_std))
-
-#add descriptive names
-
-names(data_mean_std) <- gsub("Acc", "Acceleration", names(data_mean_std))
- names(data_mean_std) <- gsub("^t", "Time", names(data_mean_std))
-names(data_mean_std) <- gsub("^f", "Frequency", names(data_mean_std))
-names(data_mean_std) <- gsub("BodyBody", "Body", names(data_mean_std))
-names(data_mean_std) <- gsub("mean", "Mean", names(data_mean_std))
-names(data_mean_std) <- gsub("std", "Std", names(data_mean_std))
-names(data_mean_std) <- gsub("Freq", "Frequency", names(data_mean_std))
-names(data_mean_std) <- gsub("Mag", "Magnitude", names(data_mean_std))
-
-#creates a second, independent tidy data set with the average of each variable for each activity and each subject.
-
-
-tidydata_average_sub<- ddply(data_mean_std, c("subject","activity"), numcolwise(mean))
-
-
-write.table(tidydata_average_sub,file="tidydata.txt")
+# melt data to tall skinny data and cast means. Finally write the tidy data to the working directory as "tidy_data.txt"
+baseData <- melt(dataSet,(id.vars=c("subject","activity")))
+secondDataSet <- dcast(baseData, subject + activity ~ variable, mean)
+names(secondDataSet)[-c(1:2)] <- paste("[mean of]" , names(secondDataSet)[-c(1:2)] )
+write.table(secondDataSet, "tidy_data.txt", sep = ",")
